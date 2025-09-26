@@ -7,7 +7,7 @@ import { UserModule } from './users/user.module';
   imports: [
     UserModule,
     AuthModule,
-    MongooseModule.forRoot('mongodb://localhost/ice_nestjs'),
+    MongooseModule.forRoot(process.env.MONGO_URI),
   ],
 })
 export class AppModule {}
