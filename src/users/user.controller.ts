@@ -30,7 +30,7 @@ export class UserController {
   }
 
   @UseGuards(AuthGuard)
-  @Post()
+  @Post('create')
   createUser(
     @Body(ValidationPipe) user: CreateUserDto,
   ): Promise<CreateUserDto[]> {
