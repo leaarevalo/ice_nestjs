@@ -1,5 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unsafe-call */
-import { IsString, IsNotEmpty } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional } from 'class-validator';
 
 export class CreateUserDto {
   @IsString()
@@ -11,14 +10,34 @@ export class CreateUserDto {
   name: string;
 
   @IsString()
-  email: string;
+  @IsNotEmpty()
+  lastName: string;
 
   @IsString()
-  dateOfBirth: string;
+  @IsOptional()
+  email?: string;
 
   @IsString()
-  history: string;
+  @IsOptional()
+  phone?: string;
 
   @IsString()
-  dateOfConversion: string;
+  @IsOptional()
+  address?: string;
+
+  @IsString()
+  @IsOptional()
+  dateOfBirth?: string;
+
+  @IsString()
+  @IsOptional()
+  dateOfConversion?: string;
+
+  @IsString()
+  @IsOptional()
+  civilState?: string;
+
+  @IsString()
+  @IsOptional()
+  marriageDate?: string;
 }
