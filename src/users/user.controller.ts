@@ -1,39 +1,45 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
+  Param,
   Post,
-  ValidationPipe,
+  Put,
   UseGuards,
-  Request,
 } from '@nestjs/common';
 import { UserService } from './user.service';
 import { CreateUserDto } from './dto/user.controller.dto';
+import { UpdateUserDto } from './dto/update-user.dto';
 import { AuthGuard } from '../auth/auth.guard';
 
-interface JwtPayload {
-  user: {
-    sub: string;
-    email: string;
-    role: string;
-  };
-}
-
+@UseGuards(AuthGuard)
 @Controller('users')
 export class UserController {
-  constructor(private readonly userService: UserService) {}
+  constructor(private readonly userService: UserService) { }
 
-  @UseGuards(AuthGuard)
   @Get()
-  getUsers(@Request() req: Partial<JwtPayload>): Promise<any> {
-    return this.userService.getUsers(req.user?.role);
+  getUsers() {
+    return this.userService.getUsers();
   }
 
-  @UseGuards(AuthGuard)
-  @Post('create')
-  createUser(
-    @Body(ValidationPipe) user: CreateUserDto,
-  ): Promise<CreateUserDto[]> {
-    return this.userService.createUpdateUser(user);
+  @Get(':id')
+  getUserById(@Param('id') id: string) {
+    return this.userService.getUserById(id);
+  }
+
+  @Post()
+  createUser(@Body() dto: CreateUserDto) {
+    return this.userService.createUser(dto);
+  }
+
+  @Put(':id')
+  updateUser(@Param('id') id: string, @Body() dto: UpdateUserDto) {
+    return this.userService.updateUser(id, dto);
+  }
+
+  @Delete(':id')
+  deleteUser(@Param('id') id: string) {
+    return this.userService.deleteUser(id);
   }
 }
