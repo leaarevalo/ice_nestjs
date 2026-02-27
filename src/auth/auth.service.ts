@@ -74,6 +74,11 @@ export class AuthService {
   }
 
   async updateManager(id: string, updateDto: UpdateManagerDto) {
+    if (updateDto.password) {
+      const salt = bcrypt.genSaltSync(10);
+      updateDto.password = bcrypt.hashSync(updateDto.password, salt);
+    }
+
     const manager = await this.managerModel
       .findByIdAndUpdate(id, updateDto, { new: true })
       .exec();
