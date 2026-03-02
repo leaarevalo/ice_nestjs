@@ -32,8 +32,24 @@ export class User {
   @Prop({ required: false })
   civilState: string;
 
-  @Prop()
+  @Prop({ required: false })
   marriageDate: string;
+
+  @Prop({ required: false })
+  studyStatus: string;
+
+  @Prop({ required: false })
+  ocupation: string;
+
+  @Prop({ required: false })
+  hasSocialWork: boolean;
+
+  @Prop({ required: false })
+  numberOfChilds: number;
+
+  @Prop({ required: false })
+  tutorInfo: string;
+
 
   createdAt: Date;
   updatedAt: Date;
