@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsOptional } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsBoolean, IsNumber } from 'class-validator';
 
 export class CreateUserDto {
   @IsString()
@@ -40,4 +40,24 @@ export class CreateUserDto {
   @IsString()
   @IsOptional()
   marriageDate?: string;
+
+  @IsString()
+  @IsOptional()
+  studyStatus?: string;
+
+  @IsString()
+  @IsOptional()
+  ocupation?: string;
+
+  @IsBoolean()
+  @IsOptional()
+  hasSocialWork?: boolean;
+
+  @IsNumber()
+  @IsOptional()
+  numberOfChilds?: number;
+
+  @IsString()
+  @IsOptional()
+  tutorInfo?: string;
 }
