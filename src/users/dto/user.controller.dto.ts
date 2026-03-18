@@ -60,4 +60,8 @@ export class CreateUserDto {
   @IsString()
   @IsOptional()
   tutorInfo?: string;
+
+  @IsBoolean()
+  @IsOptional()
+  isLider?: boolean;
 }

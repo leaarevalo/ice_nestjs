@@ -9,8 +9,11 @@ export class Group {
     @Prop({ required: true, unique: true })
     name: string;
 
-    @Prop({ type: [{ type: Types.ObjectId, ref: User.name }], default: [] })
+    @Prop({ type: [{ type: Types.ObjectId, ref: 'Manager' }], default: [] })
     managers: Types.ObjectId[];
+
+    @Prop({ type: [{ type: Types.ObjectId, ref: User.name }], default: [] })
+    collaborators: Types.ObjectId[];
 
     @Prop()
     description: string;

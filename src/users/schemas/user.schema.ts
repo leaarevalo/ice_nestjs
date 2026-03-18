@@ -50,6 +50,9 @@ export class User {
   @Prop({ required: false })
   tutorInfo: string;
 
+  @Prop({ default: false })
+  isLider: boolean;
+
 
   createdAt: Date;
   updatedAt: Date;
