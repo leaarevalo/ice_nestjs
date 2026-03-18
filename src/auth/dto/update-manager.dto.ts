@@ -14,4 +14,7 @@ export class UpdateManagerDto {
     @IsEnum(Role)
     @IsOptional()
     role?: Role;
+
+    @IsOptional()
+    assignedGroups?: string[];
 }

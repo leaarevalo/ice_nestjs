@@ -5,6 +5,7 @@ import { AuthModule } from './auth/auth.module';
 import { UserModule } from './users/user.module';
 import { GroupModule } from './groups/group.module';
 import { HistoryModule } from './history/history.module';
+import { SmallGroupModule } from './small-groups/small-group.module';
 
 @Module({
   imports: [
@@ -13,6 +14,7 @@ import { HistoryModule } from './history/history.module';
     AuthModule,
     GroupModule,
     HistoryModule,
+    SmallGroupModule,
     MongooseModule.forRoot(process.env.MONGO_URI),
   ],
 })

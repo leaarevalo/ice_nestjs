@@ -1,19 +1,23 @@
 import { IsString, IsNotEmpty, IsOptional, IsArray, IsMongoId } from 'class-validator';
 
-export class CreateGroupDto {
+export class CreateSmallGroupDto {
     @IsString()
     @IsNotEmpty()
     name: string;
 
-    @IsArray()
-    @IsString({ each: true })
-    @IsOptional()
-    managers?: string[];
+    @IsMongoId()
+    @IsNotEmpty()
+    group: string;
 
     @IsArray()
     @IsString({ each: true })
     @IsOptional()
-    collaborators?: string[];
+    leaders?: string[];
+
+    @IsArray()
+    @IsString({ each: true })
+    @IsOptional()
+    participants?: string[];
 
     @IsString()
     @IsOptional()
