@@ -6,22 +6,20 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectModel } from '@nestjs/mongoose';
-import { Manager, ManagerDocument, Role } from './schemas/manager.schema';
+import { User, UserDocument, Role } from '../users/schemas/user.schema';
 import { Model } from 'mongoose';
 import * as bcrypt from 'bcryptjs';
-import { RegisterDto } from './dto/register.dto';
-import { UpdateManagerDto } from './dto/update-manager.dto';
 
 @Injectable()
 export class AuthService {
   constructor(
-    @InjectModel(Manager.name) private managerModel: Model<ManagerDocument>,
+    @InjectModel(User.name) private userModel: Model<UserDocument>,
     private jwtService: JwtService,
-  ) { }
+  ) {}
 
-  async signIn(username: string, password: string) {
-    const user = await this.managerModel
-      .findOne({ username })
+  async signIn(document: string, password: string) {
+    const user = await this.userModel
+      .findOne({ document })
       .populate('assignedGroups', 'name description')
       .exec();
 
@@ -33,124 +31,66 @@ export class AuthService {
       throw new UnauthorizedException('Cuenta desactivada');
     }
 
+    const groupIds = (user.assignedGroups || []).map((g: any) =>
+      g._id ? g._id.toString() : g.toString(),
+    );
+
     const payload = {
       sub: user._id.toString(),
-      username: user.username,
+      document: user.document,
       role: user.role,
-      assignedGroups: user.assignedGroups || [],
+      assignedGroups: groupIds,
     };
 
     return {
       access_token: await this.jwtService.signAsync(payload),
-      user: this.sanitizeManager(user),
+      user: this.sanitizeUser(user),
     };
   }
 
-  async register(registerDto: RegisterDto) {
-    const existing = await this.managerModel.findOne({
-      username: registerDto.username,
-    });
-
-    if (existing) {
-      throw new ConflictException('El username ya está registrado');
-    }
-
-    const salt = bcrypt.genSaltSync(10);
-    const hashedPassword = bcrypt.hashSync(registerDto.password, salt);
-
-    const newManager = new this.managerModel({
-      username: registerDto.username,
-      password: hashedPassword,
-      role: registerDto.role || 'user',
-    });
-
-    const saved = await newManager.save();
-    return this.sanitizeManager(saved);
-  }
-
-  async getManagers() {
-    const managers = await this.managerModel
-      .find({ isActive: true })
+  async deactivateUserByDocument(document: string) {
+    const user = await this.userModel
+      .findOneAndUpdate({ document }, { isActive: false }, { new: true })
       .populate('assignedGroups', 'name description')
       .exec();
-    return managers.map((m) => this.sanitizeManager(m));
+    if (!user) {
+      throw new NotFoundException('Usuario no encontrado');
+    }
+    return this.sanitizeUser(user);
   }
 
-  async getManagerById(id: string) {
-    const manager = await this.managerModel
-      .findById(id)
+  async activateUserByDocument(document: string) {
+    const user = await this.userModel
+      .findOneAndUpdate({ document }, { isActive: true }, { new: true })
       .populate('assignedGroups', 'name description')
       .exec();
-    if (!manager) {
-      throw new NotFoundException('Manager no encontrado');
+    if (!user) {
+      throw new NotFoundException('Usuario no encontrado');
     }
-    return this.sanitizeManager(manager);
+    return this.sanitizeUser(user);
   }
 
-  async updateManager(id: string, updateDto: UpdateManagerDto) {
-    if (updateDto.password) {
-      const salt = bcrypt.genSaltSync(10);
-      updateDto.password = bcrypt.hashSync(updateDto.password, salt);
-    }
+  async getLiderIdsByDocuments(documents: string[]): Promise<string[]> {
+    if (!documents || documents.length === 0) return [];
 
-    const manager = await this.managerModel
-      .findByIdAndUpdate(id, updateDto, { new: true })
-      .populate('assignedGroups', 'name description')
+    const users = await this.userModel
+      .find({ document: { $in: documents } })
       .exec();
 
-    if (!manager) {
-      throw new NotFoundException('Manager no encontrado');
-    }
-    return this.sanitizeManager(manager);
-  }
-
-  async deleteManager(id: string) {
-    const manager = await this.managerModel.findByIdAndDelete(id).exec();
-    if (!manager) {
-      throw new NotFoundException('Manager no encontrado');
-    }
-    return { message: 'Manager eliminado correctamente' };
-  }
-
-  async deactivateManagerByUsername(username: string) {
-    const manager = await this.managerModel
-      .findOneAndUpdate({ username }, { isActive: false }, { new: true })
-      .populate('assignedGroups', 'name description')
-      .exec();
-    if (!manager) {
-      throw new NotFoundException('Manager no encontrado');
-    }
-    return this.sanitizeManager(manager);
-  }
-
-  async activateManagerByUsername(username: string) {
-    const manager = await this.managerModel
-      .findOneAndUpdate({ username }, { isActive: true }, { new: true })
-      .populate('assignedGroups', 'name description')
-      .exec();
-    if (!manager) {
-      throw new NotFoundException('Manager no encontrado');
-    }
-    return this.sanitizeManager(manager);
-  }
-
-  async getLiderIdsByUsernames(usernames: string[]): Promise<string[]> {
-    if (!usernames || usernames.length === 0) return [];
-
-    const managers = await this.managerModel.find({ username: { $in: usernames } }).exec();
-
-    if (managers.length !== usernames.length) {
-      throw new ConflictException('Uno o más DNIs enviados no pertenecen a cuentas registradas');
+    if (users.length !== documents.length) {
+      throw new ConflictException(
+        'Uno o más documentos enviados no pertenecen a usuarios registrados',
+      );
     }
 
-    const validIds = [];
-    for (const manager of managers) {
-      if (!manager.isActive || manager.role !== Role.LIDER) {
+    const validIds: string[] = [];
+    for (const user of users) {
+      if (!user.isActive || user.role !== Role.LIDER) {
         throw new ConflictException(
-          `La cuenta con DNI ${manager.username} no es un LIDER activo`,
+          `El usuario con documento ${user.document} no es un LIDER activo`,
         );
       }
-      validIds.push(manager._id.toString());
+      validIds.push(user._id.toString());
     }
 
     return validIds;
@@ -159,46 +99,50 @@ export class AuthService {
   async validateLiders(ids: string[]) {
     if (!ids || ids.length === 0) return;
 
-    const managers = await this.managerModel.find({ _id: { $in: ids } }).exec();
+    const users = await this.userModel.find({ _id: { $in: ids } }).exec();
 
-    if (managers.length !== ids.length) {
-      throw new ConflictException('Uno o más managers no existen');
+    if (users.length !== ids.length) {
+      throw new ConflictException('Uno o más usuarios no existen');
     }
 
-    for (const manager of managers) {
-      if (!manager.isActive || manager.role !== Role.LIDER) {
+    for (const user of users) {
+      if (!user.isActive || user.role !== Role.LIDER) {
         throw new ConflictException(
-          `La cuenta ${manager.username} no es un LIDER activo`,
+          `El usuario ${user.document} no es un LIDER activo`,
         );
       }
     }
   }
 
-  async syncGroupManagers(groupId: string, newManagerIds: string[]) {
-    // 1. Quitar este groupId de todos los managers que lo tengan
-    await this.managerModel.updateMany(
-      { assignedGroups: groupId },
-      { $pull: { assignedGroups: groupId } }
-    ).exec();
+  async syncGroupUsers(groupId: string, newUserIds: string[]) {
+    await this.userModel
+      .updateMany(
+        { assignedGroups: groupId },
+        { $pull: { assignedGroups: groupId } },
+      )
+      .exec();
 
-    // 2. Agregar este groupId a los nuevos managers
-    if (newManagerIds && newManagerIds.length > 0) {
-      await this.managerModel.updateMany(
-        { _id: { $in: newManagerIds } },
-        { $addToSet: { assignedGroups: groupId } }
-      ).exec();
+    if (newUserIds && newUserIds.length > 0) {
+      await this.userModel
+        .updateMany(
+          { _id: { $in: newUserIds } },
+          { $addToSet: { assignedGroups: groupId } },
+        )
+        .exec();
     }
   }
 
-  private sanitizeManager(manager: ManagerDocument) {
+  private sanitizeUser(user: UserDocument) {
     return {
-      id: manager._id.toString(),
-      username: manager.username,
-      role: manager.role,
-      isActive: manager.isActive,
-      assignedGroups: manager.assignedGroups || [],
-      createdAt: manager.createdAt,
-      updatedAt: manager.updatedAt,
+      id: user._id.toString(),
+      document: user.document,
+      name: user.name,
+      lastName: user.lastName,
+      role: user.role,
+      isActive: user.isActive,
+      assignedGroups: user.assignedGroups || [],
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
     };
   }
 }

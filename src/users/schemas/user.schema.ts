@@ -1,7 +1,14 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { HydratedDocument } from 'mongoose';
+import { HydratedDocument, Types } from 'mongoose';
 
 export type UserDocument = HydratedDocument<User>;
+
+export enum Role {
+  MANAGER = 'manager',
+  USER = 'user',
+  COUNSELOR = 'counselor',
+  LIDER = 'lider',
+}
 
 @Schema({ timestamps: true })
 export class User {
@@ -14,45 +21,53 @@ export class User {
   @Prop({ required: true })
   lastName: string;
 
-  @Prop({ required: false })
+  @Prop({ required: true })
+  password: string;
+
+  @Prop({ enum: Role, default: Role.USER })
+  role: Role;
+
+  @Prop({ default: true })
+  isActive: boolean;
+
+  @Prop({ type: [{ type: Types.ObjectId, ref: 'Group' }], default: [] })
+  assignedGroups: Types.ObjectId[];
+
+  @Prop()
   email: string;
 
-  @Prop({ required: false })
+  @Prop()
   phone: string;
 
-  @Prop({ required: false })
+  @Prop()
   address: string;
 
-  @Prop({ required: false })
+  @Prop()
   dateOfBirth: string;
 
-  @Prop({ required: false })
+  @Prop()
   dateOfConversion: string;
 
-  @Prop({ required: false })
+  @Prop()
   civilState: string;
 
-  @Prop({ required: false })
+  @Prop()
   marriageDate: string;
 
-  @Prop({ required: false })
+  @Prop()
   studyStatus: string;
 
-  @Prop({ required: false })
+  @Prop()
   ocupation: string;
 
-  @Prop({ required: false })
+  @Prop()
   hasSocialWork: boolean;
 
-  @Prop({ required: false })
+  @Prop()
   numberOfChilds: number;
 
-  @Prop({ required: false })
+  @Prop()
   tutorInfo: string;
-
-  @Prop({ default: false })
-  isLider: boolean;
-
 
   createdAt: Date;
   updatedAt: Date;

@@ -1,4 +1,13 @@
-import { IsString, IsNotEmpty, IsOptional, IsBoolean, IsNumber } from 'class-validator';
+import {
+  IsString,
+  IsNotEmpty,
+  IsOptional,
+  IsBoolean,
+  IsNumber,
+  IsEnum,
+  MinLength,
+} from 'class-validator';
+import { Role } from '../schemas/user.schema';
 
 export class CreateUserDto {
   @IsString()
@@ -12,6 +21,14 @@ export class CreateUserDto {
   @IsString()
   @IsNotEmpty()
   lastName: string;
+
+  @IsString()
+  @MinLength(6)
+  password: string;
+
+  @IsEnum(Role)
+  @IsOptional()
+  role?: Role;
 
   @IsString()
   @IsOptional()
@@ -60,8 +77,4 @@ export class CreateUserDto {
   @IsString()
   @IsOptional()
   tutorInfo?: string;
-
-  @IsBoolean()
-  @IsOptional()
-  isLider?: boolean;
 }

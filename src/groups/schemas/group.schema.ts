@@ -6,20 +6,20 @@ export type GroupDocument = HydratedDocument<Group>;
 
 @Schema({ timestamps: true })
 export class Group {
-    @Prop({ required: true, unique: true })
-    name: string;
+  @Prop({ required: true, unique: true })
+  name: string;
 
-    @Prop({ type: [{ type: Types.ObjectId, ref: 'Manager' }], default: [] })
-    managers: Types.ObjectId[];
+  @Prop({ type: [{ type: Types.ObjectId, ref: User.name }], default: [] })
+  managers: Types.ObjectId[];
 
-    @Prop({ type: [{ type: Types.ObjectId, ref: User.name }], default: [] })
-    collaborators: Types.ObjectId[];
+  @Prop({ type: [{ type: Types.ObjectId, ref: User.name }], default: [] })
+  collaborators: Types.ObjectId[];
 
-    @Prop()
-    description: string;
+  @Prop()
+  description: string;
 
-    createdAt: Date;
-    updatedAt: Date;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export const GroupSchema = SchemaFactory.createForClass(Group);

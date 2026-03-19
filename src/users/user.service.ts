@@ -5,25 +5,54 @@ import {
 } from '@nestjs/common';
 import { Model } from 'mongoose';
 import { InjectModel } from '@nestjs/mongoose';
-import { User } from './schemas/user.schema';
+import { User, UserDocument, Role } from './schemas/user.schema';
+import { Group, GroupDocument } from '../groups/schemas/group.schema';
 import { CreateUserDto } from './dto/user.controller.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { AuthService } from '../auth/auth.service';
-import { Role } from '../auth/schemas/manager.schema';
+import * as bcrypt from 'bcryptjs';
 
 @Injectable()
 export class UserService {
   constructor(
-    @InjectModel(User.name) private userModel: Model<User>,
-    private readonly authService: AuthService,
-  ) { }
+    @InjectModel(User.name) private userModel: Model<UserDocument>,
+    @InjectModel(Group.name) private groupModel: Model<GroupDocument>,
+  ) {}
 
-  async getUsers(): Promise<User[]> {
-    return this.userModel.find().exec();
+  async getUsers(requestUser: {
+    role: Role;
+    assignedGroups?: string[];
+  }): Promise<User[]> {
+    if (requestUser.role === Role.LIDER) {
+      return this.getUsersByAssignedGroups(requestUser.assignedGroups || []);
+    }
+    return this.userModel.find().select('-password').exec();
+  }
+
+  private async getUsersByAssignedGroups(
+    assignedGroups: any[],
+  ): Promise<User[]> {
+    const groupIds = assignedGroups.map((g) =>
+      typeof g === 'object' && g._id ? g._id.toString() : g.toString(),
+    );
+
+    const groups = await this.groupModel
+      .find({ _id: { $in: groupIds } })
+      .exec();
+
+    const userIds = new Set<string>();
+    for (const group of groups) {
+      group.managers.forEach((id) => userIds.add(id.toString()));
+      group.collaborators.forEach((id) => userIds.add(id.toString()));
+    }
+
+    return this.userModel
+      .find({ _id: { $in: [...userIds] } })
+      .select('-password')
+      .exec();
   }
 
   async getUserById(id: string) {
-    const user = await this.userModel.findById(id).exec();
+    const user = await this.userModel.findById(id).select('-password').exec();
     if (!user) {
       throw new NotFoundException('Usuario no encontrado');
     }
@@ -39,14 +68,18 @@ export class UserService {
       throw new ConflictException('Ya existe un usuario con ese documento');
     }
 
-    const newUser = new this.userModel(dto);
+    const salt = bcrypt.genSaltSync(10);
+    const hashedPassword = bcrypt.hashSync(dto.password, salt);
+
+    const newUser = new this.userModel({
+      ...dto,
+      password: hashedPassword,
+    });
+
     const savedUser = await newUser.save();
-
-    if (dto.isLider) {
-      await this.createOrReactivateLiderAccount(dto.document);
-    }
-
-    return savedUser;
+    const userObj = savedUser.toObject();
+    delete userObj.password;
+    return userObj;
   }
 
   async updateUser(id: string, dto: UpdateUserDto) {
@@ -55,26 +88,15 @@ export class UserService {
       throw new NotFoundException('Usuario no encontrado');
     }
 
-    const wasLider = currentUser.isLider;
-    const willBeLider = dto.isLider;
+    if (dto.password) {
+      const salt = bcrypt.genSaltSync(10);
+      dto.password = bcrypt.hashSync(dto.password, salt);
+    }
 
     const user = await this.userModel
       .findByIdAndUpdate(id, dto, { new: true })
+      .select('-password')
       .exec();
-
-    // isLider changed: false → true → create/reactivate auth account
-    if (willBeLider === true && !wasLider) {
-      await this.createOrReactivateLiderAccount(user.document);
-    }
-
-    // isLider changed: true → false → deactivate auth account
-    if (willBeLider === false && wasLider) {
-      try {
-        await this.authService.deactivateManagerByUsername(user.document);
-      } catch (e) {
-        // Ignore if manager not found
-      }
-    }
 
     return user;
   }
@@ -85,39 +107,21 @@ export class UserService {
       throw new NotFoundException('Usuario no encontrado');
     }
 
-    // Soft-delete auth account if user was a lider
-    if (user.isLider) {
-      try {
-        await this.authService.deactivateManagerByUsername(user.document);
-      } catch (e) {
-        // Ignore if manager not found
-      }
-    }
-
     await this.userModel.findByIdAndDelete(id).exec();
     return { message: 'Usuario eliminado correctamente' };
   }
 
-  private async createOrReactivateLiderAccount(document: string) {
-    try {
-      // Try to reactivate existing account first
-      await this.authService.activateManagerByUsername(document);
-    } catch (e) {
-      // Account doesn't exist, create a new one
-      await this.authService.register({
-        username: document,
-        password: document,
-        role: Role.LIDER,
-      });
-    }
-  }
   async getUserIdsByDocuments(documents: string[]): Promise<string[]> {
     if (!documents || documents.length === 0) return [];
 
-    const users = await this.userModel.find({ document: { $in: documents } }).exec();
+    const users = await this.userModel
+      .find({ document: { $in: documents } })
+      .exec();
 
     if (users.length !== documents.length) {
-      throw new ConflictException('Uno o más documentos enviados no pertenecen a usuarios registrados');
+      throw new ConflictException(
+        'Uno o más documentos enviados no pertenecen a usuarios registrados',
+      );
     }
 
     return users.map((user) => user._id.toString());
