@@ -6,6 +6,10 @@ import { UserModule } from './users/user.module';
 import { GroupModule } from './groups/group.module';
 import { HistoryModule } from './history/history.module';
 import { SmallGroupModule } from './small-groups/small-group.module';
+import { SchoolModule } from './schools/school.module';
+import { AcademicModuleModule } from './academic-modules/academic-module.module';
+import { EnrollmentModule } from './enrollments/enrollment.module';
+import { SubmissionModule } from './submissions/submission.module';
 
 @Module({
   imports: [
@@ -15,7 +19,11 @@ import { SmallGroupModule } from './small-groups/small-group.module';
     GroupModule,
     HistoryModule,
     SmallGroupModule,
+    SchoolModule,
+    AcademicModuleModule,
+    EnrollmentModule,
+    SubmissionModule,
     MongooseModule.forRoot(process.env.MONGO_URI),
   ],
 })
-export class AppModule { }
+export class AppModule {}

@@ -7,6 +7,14 @@ import { Model } from 'mongoose';
 import { InjectModel } from '@nestjs/mongoose';
 import { User, UserDocument, Role } from './schemas/user.schema';
 import { Group, GroupDocument } from '../groups/schemas/group.schema';
+import {
+  Enrollment,
+  EnrollmentDocument,
+} from '../enrollments/schemas/enrollment.schema';
+import {
+  AcademicModule,
+  AcademicModuleDocument,
+} from '../academic-modules/schemas/academic-module.schema';
 import { CreateUserDto } from './dto/user.controller.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import * as bcrypt from 'bcryptjs';
@@ -16,16 +24,59 @@ export class UserService {
   constructor(
     @InjectModel(User.name) private userModel: Model<UserDocument>,
     @InjectModel(Group.name) private groupModel: Model<GroupDocument>,
+    @InjectModel(Enrollment.name)
+    private enrollmentModel: Model<EnrollmentDocument>,
+    @InjectModel(AcademicModule.name)
+    private academicModuleModel: Model<AcademicModuleDocument>,
   ) {}
 
   async getUsers(requestUser: {
+    sub?: string;
     role: Role;
     assignedGroups?: string[];
   }): Promise<User[]> {
     if (requestUser.role === Role.LIDER) {
       return this.getUsersByAssignedGroups(requestUser.assignedGroups || []);
     }
+    if (requestUser.role === Role.USER) {
+      return this.getUsersByEnrolledSchools(requestUser.sub);
+    }
     return this.userModel.find().select('-password').exec();
+  }
+
+  private async getUsersByEnrolledSchools(userId: string): Promise<User[]> {
+    const myEnrollments = await this.enrollmentModel
+      .find({ student: userId })
+      .select('school')
+      .exec();
+    const schoolIds = myEnrollments.map((e) => e.school.toString());
+
+    if (schoolIds.length === 0) {
+      return [];
+    }
+
+    // Get all students enrolled in the same schools
+    const fellowEnrollments = await this.enrollmentModel
+      .find({ school: { $in: schoolIds } })
+      .select('student')
+      .exec();
+    const userIds = new Set<string>(
+      fellowEnrollments.map((e) => e.student.toString()),
+    );
+
+    // Get all professors of modules in those schools
+    const modules = await this.academicModuleModel
+      .find({ school: { $in: schoolIds } })
+      .select('professors')
+      .exec();
+    for (const mod of modules) {
+      mod.professors.forEach((p) => userIds.add(p.toString()));
+    }
+
+    return this.userModel
+      .find({ _id: { $in: [...userIds] } })
+      .select('-password')
+      .exec();
   }
 
   private async getUsersByAssignedGroups(
